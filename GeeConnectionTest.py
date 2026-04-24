@@ -77,7 +77,6 @@ for year in range(start_year, end_year + 1):
                 print(f"Skipping {year}-{month:02d}: No NDVI band generated.")
         else:
             print(f"Skipping {year}-{month:02d}: No cloud-free images found.")
-            
 # 5. Pandas 데이터프레임 변환 및 파일 저장
 df = pd.DataFrame(monthly_data)
 
