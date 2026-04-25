@@ -8,8 +8,8 @@ import os
 
 # 1. 설정 (제주 환상숲 부근 좌표로 초기 세팅)
 # 중심점: 저지리 환상숲 부근 (위경도)
-center_lat, center_lon = 33.323048, 126.262915
-delta = 0.0015 # 보여줄 범위 (약 500m)
+center_lat, center_lon = 33.326048, 126.264015
+delta = 0.005 # 보여줄 범위 (약 500m)
 
 class GotjawalDrawer:
     def __init__(self):

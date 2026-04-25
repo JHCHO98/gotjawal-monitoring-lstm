@@ -3,78 +3,86 @@ import os
 import numpy as np
 import pandas as pd
 from shapely.wkt import loads
+import cv2
 from dotenv import load_dotenv
 
-# 1. 환경변수 로드 및 GEE 초기화
-load_dotenv()
-PROJECT_ID = os.getenv('GEE_PROJECT_ID')
+load_dotenv()  # .env 파일에서 환경 변수 로드
+project_id = os.getenv('GEE_PROJECT_ID')
 
-ee.Authenticate()
-ee.Initialize(project=PROJECT_ID)
+# GEE 초기화
+ee.Initialize(project=project_id)
 
-# 2. ROI 로드 함수
-def load_roi_from_csv(file_path):
+def get_greenest_ndvi_sequence(file_path):
+    # 1. ROI 로드 및 버퍼 설정
     df = pd.read_csv(file_path)
-    wkt_str = df['wkt'].iloc[0]
-    poly = loads(wkt_str)
-    if poly.geom_type == 'Polygon':
-        coords = [list(poly.exterior.coords)]
-    else:
-        coords = [list(p.exterior.coords) for p in poly.geoms]
-    return ee.Geometry.Polygon(coords)
+    poly = loads(df['wkt'].iloc[0])
+    coords = list(poly.exterior.coords)
+    if coords[0][0] < 100: coords = [[c[1], c[0]] for c in coords]
+    
+    roi = ee.Geometry.Polygon([coords])
+    # 🚨 픽셀 유실 방지를 위해 100m 버퍼 추가
+    buffer_roi = roi.buffer(100).bounds()
 
-# 3. NDVI 추출 및 배열 변환 함수
-def get_monthly_ndvi_array(roi, start_year, end_year):
-    # 구름 필터를 50%로 완화
-    collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED") \
-        .filterBounds(roi) \
-        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 50))
-    
+    collection = ee.ImageCollection("COPERNICUS/S2")
+
+    def addNDVI(img):
+        return img.addBands(img.normalizedDifference(['B8', 'B4']).rename('NDVI'))
+
     all_months_data = []
-    
-    for year in range(start_year, end_year + 1):
+
+    for year in range(2019, 2026):
         for month in range(1, 13):
-            if year == 2026: break # 현재 날짜 기준
-            
+            if year == 2026: break
             start_date = ee.Date.fromYMD(year, month, 1)
             end_date = start_date.advance(1, 'month')
-            
-            # Median 대신 해당 월의 가장 구름 적은 영상 한 장만 써보기
-            img = collection.filterDate(start_date, end_date).sort('CLOUDY_PIXEL_PERCENTAGE').first()
-            
-            # 데이터가 존재하는지 확인
-            if img.getInfo() is None:
-                all_months_data.append(None)
-                print(f"⚠️ {year}-{month:02d} | 해당 기간에 위성 영상 자체가 없음")
-                continue
 
-            ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI').clip(roi)
+            # 🚨 Quality Mosaic: 가장 초록색인 픽셀만 합성
+            monthly_col = collection.filterBounds(buffer_roi).filterDate(start_date, end_date).map(addNDVI)
             
             try:
-                # scale=10(미터) 명시, defaultValue 설정
-                pixel_data = ndvi.sampleRectangle(region=roi, defaultValue=0)
-                ndvi_array = np.array(pixel_data.get('NDVI').getInfo())
-                all_months_data.append(ndvi_array)
-                print(f"✅ {year}-{month:02d} 수집 성공! (Shape: {ndvi_array.shape})")
-            except Exception as e:
+                if monthly_col.size().getInfo() > 0:
+                    # NDVI가 최대인 픽셀들로 모자이크 생성
+                    greenest_img = monthly_col.qualityMosaic('NDVI').select('NDVI')
+                    # 🚨 해상도를 20m로 조절하여 안정성 확보
+                    pixel_data = greenest_img.reproject(crs='EPSG:4326', scale=20).sampleRectangle(region=buffer_roi)
+                    
+                    ndvi_array = np.array(pixel_data.get('NDVI').getInfo())
+                    
+                    # 모든 데이터가 0이거나 음수면 실패로 간주
+                    if np.max(ndvi_array) <= 0: raise ValueError
+                    
+                    all_months_data.append(ndvi_array)
+                    print(f"✅ {year}-{month:02d} | 성공 (Max: {np.max(ndvi_array):.4f})")
+                else:
+                    raise ValueError
+            except:
                 all_months_data.append(None)
-                print(f"❌ {year}-{month:02d} 변환 실패: {e}")
-                
-    return all_months_data
+                print(f"❌ {year}-{month:02d} | 데이터 없음")
 
-# 4. 실행 및 저장
-roi = load_roi_from_csv('my_gotjawal_roi.csv')
-print(f"프로젝트 [{PROJECT_ID}]에서 데이터 수집을 시작합니다...")
+    # --- 보간 및 크기 조정 ---
+    print("\n🔄 데이터 보간 및 전처리를 시작합니다...")
+    processed_data = []
+    
+    # 임시로 None을 앞뒤 값으로 채우는 로직
+    for i in range(len(all_months_data)):
+        target = all_months_data[i]
+        if target is None:
+            # 주변 데이터 탐색
+            prev_val = next((all_months_data[j] for j in range(i-1, -1, -1) if all_months_data[j] is not None), None)
+            next_val = next((all_months_data[j] for j in range(i+1, len(all_months_data)) if all_months_data[j] is not None), None)
+            
+            if prev_val is not None and next_val is not None:
+                target = (prev_val + next_val) / 2
+            elif prev_val is not None: target = prev_val
+            elif next_val is not None: target = next_val
+            else: target = np.full((21, 28), 0.5) # 최후의 수단: 중간값
 
-ndvi_sequences = get_monthly_ndvi_array(roi, 2019, 2025)
+        # 🚨 ConvLSTM 입력을 위해 크기를 (21, 28)로 통일
+        resized = cv2.resize(np.array(target), (28, 21))
+        processed_data.append(resized)
 
-# 데이터 저장 폴더 생성
-output_dir = './data/processed'
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-print(roi.centroid().coordinates().getInfo())
-# 리스트를 넘파이 오브젝트 배열로 저장 (크기가 제각각일 수 있으므로)
-save_path = os.path.join(output_dir, 'gotjawal_ndvi_sequence.npy')
-np.save(save_path, np.array(ndvi_sequences, dtype=object))
+    final_x = np.array(processed_data)
+    np.save('./data/processed/X_train.npy', final_x)
+    print("🚀 수집 및 저장 완료!")
 
-print(f"\n🚀 모든 작업 완료! 데이터가 '{save_path}'에 저장되었습니다.")
+get_greenest_ndvi_sequence('my_gotjawal_roi.csv')
