@@ -65,4 +65,4 @@ def interactive_gotjawal_viewer(data_path, roi_csv_path):
     plt.show()
 
 # 실행
-interactive_gotjawal_viewer('./data/processed/X_train_final.npy', 'my_gotjawal_roi.csv')
+interactive_gotjawal_viewer('./data/processed/X_train_final.npy', 'gotjawal_roi.csv')
