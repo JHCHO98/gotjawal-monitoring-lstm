@@ -9,7 +9,11 @@ from collections import defaultdict
 load_dotenv()
 
 API_KEY = os.getenv('WEATHER_API_KEY')   # 공공데이터포털 인증키 (URL 인코딩 전 원문 키)
-STN_ID  = 104                   # 지점번호: 108=서울, 133=대전, 143=대구, 156=광주, 159=부산, 184=제주
+STN_ID  = os.getenv('STN_ID')
+START_YEAR = int(os.getenv('START_YEAR', 2015))
+START_MONTH = int(os.getenv('START_MONTH', 1))
+END_YEAR = int(os.getenv('END_YEAR', 2025))
+END_MONTH = int(os.getenv('END_MONTH', 12))
 OUTPUT_CSV = "data/monthly_weather.csv"
 
  
@@ -130,11 +134,11 @@ def monthly_average(items):
  
 def main():
     print(f"기상청 ASOS API 월평균 데이터 수집")
-    print(f"지점: {STN_ID} | 기간: 2019-01 ~ 2025-12\n")
+    print(f"지점: {STN_ID} | 기간: {START_YEAR}-{START_MONTH:02d} ~ {END_YEAR}-{END_MONTH:02d}\n")
  
     rows = []
  
-    for year, month, start_dt, end_dt in date_range_by_month(2019, 1, 2025, 12):
+    for year, month, start_dt, end_dt in date_range_by_month(START_YEAR, START_MONTH, END_YEAR, END_MONTH):
         label = f"{year}-{month:02d}"
         print(f"[{label}] {start_dt} ~ {end_dt} 조회 중...", end=" ", flush=True)
  

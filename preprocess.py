@@ -1,5 +1,14 @@
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+start_year = int(os.getenv('START_YEAR', 2015))
+start_month = int(os.getenv('START_MONTH', 1))
+end_year = int(os.getenv('END_YEAR', 2025))
+end_month = int(os.getenv('END_MONTH', 12))
 
 def preprocess_advanced(data_path, save_path):
     # 1. 데이터 로드 (84, 21, 28)
@@ -32,7 +41,7 @@ def preprocess_advanced(data_path, save_path):
     outlier_idx = diff > 0.15 # 0.15 이상 튀면 이상치로 판단
     
     for idx in np.where(outlier_idx)[0]:
-        print(f"⚠️ Index {idx} ({2019+idx//12}년 {idx%12+1}월) 이상치 감지 -> 보정 실시")
+        print(f"⚠️ Index {idx} ({start_year+idx//12}년 {idx%12+1}월) 이상치 감지 -> 보정 실시")
         # 주변 2개월의 평균 이미지로 대체
         start = max(0, idx-1)
         end = min(num_months, idx+2)
@@ -67,8 +76,8 @@ def fix_2022_baseline(data_path, save_path):
     ts_mean = np.mean(data, axis=(1, 2))
     
     # 2. 2022년 이전(0~35개월)과 이후(36~83개월)의 평균값 계산
-    pre_2022 = ts_mean[:36]
-    post_2022 = ts_mean[36:]
+    pre_2022 = ts_mean[:(2022-start_year)*12 + (start_month-1)]   # 2019-01 ~ 2021-12 (36개월 * 3년 = 108개월, 0~155 인덱스)
+    post_2022 = ts_mean[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)]
     
     pre_avg = np.mean(pre_2022)
     post_avg = np.mean(post_2022)
@@ -84,7 +93,7 @@ def fix_2022_baseline(data_path, save_path):
     # 4. 2022년 이후 데이터에 오프셋을 더함 (영점 조정)
     corrected_data = data.copy()
     if offset > 0:
-        corrected_data[36:] = corrected_data[36:] + offset
+        corrected_data[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)] = corrected_data[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)] + offset
         
     # 5. 최종 데이터 0~1 범위로 제한
     corrected_data = np.clip(corrected_data, 0, 1)

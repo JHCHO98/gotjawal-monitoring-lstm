@@ -1,6 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+start_year = int(os.getenv('START_YEAR', 2015))
+start_month = int(os.getenv('START_MONTH', 1))
+end_year = int(os.getenv('END_YEAR', 2025))
+end_month = int(os.getenv('END_MONTH', 12))
+
 
 def visualize_ndvi_trend(data_path):
     # 1. 데이터 로드 (84, 21, 28)
@@ -18,17 +28,17 @@ def visualize_ndvi_trend(data_path):
         else:
             monthly_means.append(np.nan)
 
-    # 3. 시간축 생성 (2019-01 ~ 2025-12)
-    dates = pd.date_range(start='2019-01-01', periods=84, freq='MS')
+    # 3. 시간축 생성 (2009-01 ~ 2025-12)
+    dates = pd.date_range(start=f'{start_year}-{start_month:02d}-01', periods=84, freq='MS')
     
     # 4. 그래프 그리기
     plt.figure(figsize=(15, 6))
     plt.plot(dates, monthly_means, marker='o', linestyle='-', color='#2ca02c', linewidth=2, markersize=4)
     
     # 배경에 계절 표시 (여름: 노란색, 겨울: 하늘색 등 - 선택사항)
-    for i in range(2019, 2026):
-        plt.axvspan(pd.Timestamp(f'{i}-06-01'), pd.Timestamp(f'{i}-08-31'), color='yellow', alpha=0.1, label='Summer' if i==2019 else "")
-        plt.axvspan(pd.Timestamp(f'{i}-12-01'), pd.Timestamp(f'{i+1}-02-28' if i<2025 else '2025-12-31'), color='blue', alpha=0.05, label='Winter' if i==2019 else "")
+    for i in range(start_year, end_year + 1):
+        plt.axvspan(pd.Timestamp(f'{i}-06-01'), pd.Timestamp(f'{i}-08-31'), color='yellow', alpha=0.1, label='Summer' if i==start_year else "")
+        plt.axvspan(pd.Timestamp(f'{i}-12-01'), pd.Timestamp(f'{i+1}-02-28' if i<end_year else f'{end_year}-{end_month:02d}-31'), color='blue', alpha=0.05, label='Winter' if i==start_year else "")
 
     # 그래프 꾸미기
     plt.title('2019-2025 Jeju Gotjawal Average NDVI Trend', fontsize=16, pad=20)

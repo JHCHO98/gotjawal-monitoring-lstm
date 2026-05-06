@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 
 load_dotenv()  # .env 파일에서 환경 변수 로드
 project_id = os.getenv('GEE_PROJECT_ID')
+start_year = int(os.getenv('START_YEAR', 2015))
+start_month = int(os.getenv('START_MONTH', 1))
+end_year = int(os.getenv('END_YEAR', 2025))
+end_month = int(os.getenv('END_MONTH', 12))
 
 # GEE 초기화
 ee.Initialize(project=project_id)
@@ -30,9 +34,10 @@ def get_greenest_ndvi_sequence(file_path):
 
     all_months_data = []
 
-    for year in range(2019, 2026):
-        for month in range(1, 13):
-            if year == 2026: break
+    for year in range(start_year, end_year + 1):
+        for month in range(start_month, 13) if year == start_year else range(1, 13):
+            if year == end_year and month > end_month:
+                break
             start_date = ee.Date.fromYMD(year, month, 1)
             end_date = start_date.advance(1, 'month')
 
