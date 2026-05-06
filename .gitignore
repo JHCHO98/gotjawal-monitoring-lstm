@@ -3,3 +3,4 @@
 .env
 data_raw/
 data/
+models/
