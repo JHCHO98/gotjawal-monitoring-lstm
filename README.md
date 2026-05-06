@@ -27,7 +27,7 @@
 본 프로젝트는 보안을 위해 GEE Project ID를 환경변수로 관리합니다. .env 파일을 생성하세요.
 
 ```env
-GEE_PROJECT_ID=gotjawal-monitoring-lstm
+GEE_PROJECT_ID=your_project_id_here
 WEATHER_API_KEY=your_api_key_here
 START_YEAR=2019
 START_MONTH=1
