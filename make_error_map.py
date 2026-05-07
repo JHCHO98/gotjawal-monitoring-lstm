@@ -1,22 +1,24 @@
+import ee
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from model import GotjawalConvLSTM
-import ee
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import pandas as pd
 from shapely.wkt import loads
-from rasterio import features
-from affine import Affine
 from dotenv import load_dotenv
 from make_input_data import create_precise_mask,load_data,create_sequences
 # 1. 초기화
 load_dotenv()
 PROJECT_ID = os.getenv('GEE_PROJECT_ID')
-ee.Initialize(project=PROJECT_ID)
+try:
+    ee.Initialize(project=PROJECT_ID)
+except:
+    ee.Authenticate()
+    ee.Initialize(project=PROJECT_ID)
 
 
 def get_resized_actual_jan_2026(wkt_path):
@@ -96,5 +98,5 @@ plt.title("2026-01 NDVI Prediction Error Map (Torch Model)", fontsize=14)
 rmse = np.sqrt(np.nanmean(error_map**2))
 plt.annotate(f'RMSE: {rmse:.4f}', xy=(0.05, 0.05), xycoords='axes fraction', 
              bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.8))
-
+plt.savefig('./plots/error_map.png', dpi=150, bbox_inches='tight')
 plt.show()
