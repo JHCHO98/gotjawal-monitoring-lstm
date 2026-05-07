@@ -67,39 +67,4 @@ def preprocess_advanced(data_path, save_path):
 
 
 # 실행
-preprocess_advanced('./data/processed/X_train.npy', './data/processed/X_train_refined.npy')
-
-def fix_2022_baseline(data_path, save_path):
-    data = np.load(data_path)
-    
-    # 1. 시계열 평균 계산 (84개월)
-    ts_mean = np.mean(data, axis=(1, 2))
-    
-    # 2. 2022년 이전(0~35개월)과 이후(36~83개월)의 평균값 계산
-    pre_2022 = ts_mean[:(2022-start_year)*12 + (start_month-1)]   # 2019-01 ~ 2021-12 (36개월 * 3년 = 108개월, 0~155 인덱스)
-    post_2022 = ts_mean[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)]
-    
-    pre_avg = np.mean(pre_2022)
-    post_avg = np.mean(post_2022)
-    
-    # 3. 두 기간 사이의 차이(Offset) 계산
-    # 이전보다 얼마나 낮아졌는지 확인 (예: 0.15 정도 낮아졌을 것)
-    offset = pre_avg - post_avg
-    
-    print(f"📊 2022년 이전 평균: {pre_avg:.4f}")
-    print(f"📊 2022년 이후 평균: {post_avg:.4f}")
-    print(f"🔧 보정치(Offset): {offset:.4f}")
-
-    # 4. 2022년 이후 데이터에 오프셋을 더함 (영점 조정)
-    corrected_data = data.copy()
-    if offset > 0:
-        corrected_data[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)] = corrected_data[(2022-start_year)*12 + (start_month-1):(2025-start_year)*12 + (end_month-1)] + offset
-        
-    # 5. 최종 데이터 0~1 범위로 제한
-    corrected_data = np.clip(corrected_data, 0, 1)
-    
-    np.save(save_path, corrected_data)
-    print(f"🚀 영점 조정 완료! {save_path}로 저장되었습니다.")
-
-# 실행
-fix_2022_baseline('./data/processed/X_train_refined.npy', './data/processed/X_train_final.npy')
+preprocess_advanced('./data/X_train2.npy', './data/processed/X_train_final.npy')
